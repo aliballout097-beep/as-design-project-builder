@@ -1,0 +1,549 @@
+{
+  "name": "ASD 03 · Proposal PDF Generator",
+  "nodes": [
+    {
+      "id": "5e198dde-d4a8-55b9-a6cf-73781b4bc715",
+      "name": "Note · Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -280
+      ],
+      "parameters": {
+        "content": "## 03 · Proposal PDF Generator\n**Trigger:** `POST /webhook/asd-proposal-pdf` with `{ \"proposalId\": \"…\" }` — called by workflow 04 before emailing the client (or by any other workflow).\n\n**Engines** (Config → `pdfEngine`):\n- `app` *(default)* — downloads the PDF rendered by the app (`GET /api/v1/proposals/:id/pdf`, react-pdf, brand fonts)\n- `gotenberg` — builds the HTML below and converts it with a self-hosted Gotenberg container (see docker-compose.yml). Full HTML/CSS control.\n\nOptionally archives the file to **Supabase Storage** (`uploadToSupabase`).\n\nResponds with the PDF binary (`application/pdf`).",
+        "width": 440,
+        "height": 400,
+        "color": 6
+      }
+    },
+    {
+      "id": "49ab40bc-2cbc-5204-a299-ab73b241534e",
+      "name": "PDF Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "2f6cd916-cd22-5c3b-a19b-4bed23165b7d",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asd-proposal-pdf",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "fd744667be1350",
+          "name": "ASD · Webhook auth (app → n8n)"
+        }
+      }
+    },
+    {
+      "id": "dca64d50-0cd4-5150-ac01-9df35a44de97",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3256406c-f075-52e4-ab6e-0d907d162764",
+              "name": "appBaseUrl",
+              "value": "https://automation.asdesignlb.com",
+              "type": "string"
+            },
+            {
+              "id": "5bb9c85c-3a9e-58d4-adcb-50f3741027e5",
+              "name": "pdfEngine",
+              "value": "app",
+              "type": "string"
+            },
+            {
+              "id": "72e8bb23-9316-53a5-ad09-acf7538e3060",
+              "name": "gotenbergUrl",
+              "value": "http://gotenberg:3000",
+              "type": "string"
+            },
+            {
+              "id": "4e43f733-5e9a-5d1f-ad81-cd57e4240f5f",
+              "name": "uploadToSupabase",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "5805992c-e788-5fc6-a3d5-8333de42bc23",
+              "name": "supabaseUrl",
+              "value": "https://YOUR-PROJECT.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "c8200cc2-6062-5fe8-a88b-1d448adc3da9",
+              "name": "supabaseBucket",
+              "value": "proposals",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "⚙️ Edit these values for your installation.",
+      "notesInFlow": true
+    },
+    {
+      "id": "16146d06-042b-55e5-ad7a-662d212eb808",
+      "name": "Use Gotenberg?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e2ec9c5b-63a1-576a-a2d2-ed327e5e7f54",
+              "leftValue": "={{ $('Config').first().json.pdfEngine }}",
+              "rightValue": "gotenberg",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fb942613-3743-592d-abfe-b384fee72bd8",
+      "name": "Download App PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        120
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/proposals/{{ $('PDF Webhook').first().json.body.proposalId }}/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "fa86d53f-4369-5af2-a19e-296cee94f305",
+      "name": "Fetch Proposal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        -120
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/proposals/{{ $('PDF Webhook').first().json.body.proposalId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "7f0d162c-2285-5653-a644-75d2f1107d2a",
+      "name": "Render HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        -120
+      ],
+      "parameters": {
+        "jsCode": "function esc(value) {\n  return String(value === null || value === undefined ? \"\" : value)\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace(/\"/g, \"&quot;\");\n}\nfunction money(value, currency) {\n  try { return new Intl.NumberFormat(\"en-US\", { style: \"currency\", currency: currency || \"USD\", maximumFractionDigits: 0 }).format(value || 0); }\n  catch (e) { return (currency || \"USD\") + \" \" + Math.round(value || 0); }\n}\nconst BRAND = {\"name\":\"AS Design Studio\",\"ember\":\"#d2660a\",\"ink\":\"#0a1669\",\"email\":\"info@asdesignlb.com\"};\n// Branded HTML proposal → rendered to PDF by Gotenberg (Chromium). Edit freely: it's plain HTML/CSS.\nconst res = $json;\nconst p = res.proposal;\nconst lead = res.lead;\nconst m = (v) => money(v, p.currency);\nconst phaseRows = p.phases.map((phase) => {\n  const items = p.lineItems.filter((i) => i.included && i.phase === phase.name);\n  if (!items.length) return \"\";\n  return '<h3>' + esc(phase.name) + ' <span>' + phase.weeks + ' weeks</span></h3><table>' +\n    items.map((i) => '<tr><td><b>' + esc(i.title) + '</b><br><small>' + esc(i.description) + '</small></td><td class=\"r\">' + m(i.price) + (i.billing === \"monthly\" ? \"/mo\" : \"\") + '</td></tr>').join(\"\") +\n    '</table>';\n}).join(\"\");\nconst optional = p.lineItems.filter((i) => !i.included);\nconst total = p.totals.totalWeeks || 1;\nlet cursor = 0;\nconst gantt = p.phases.map((phase) => {\n  const left = (cursor / total) * 100; cursor += phase.weeks;\n  return '<div class=\"g\"><span>' + esc(phase.name) + '</span><i><b style=\"left:' + left + '%;width:' + Math.max((phase.weeks / total) * 100, 3) + '%\"></b></i><em>' + phase.weeks + ' wk</em></div>';\n}).join(\"\");\nconst schedule = p.paymentSchedule.map((s) => '<tr><td>' + esc(s.label) + '</td><td class=\"r\">' + s.percent + '%</td><td class=\"r\">' + m(s.amount) + '</td></tr>').join(\"\");\nconst html = '<!doctype html><html><head><meta charset=\"utf-8\"><style>' +\n  '@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Helvetica,Arial,sans-serif;color:#1c1b19;font-size:11pt;line-height:1.55}' +\n  '.cover{height:297mm;padding:24mm 20mm;background:' + BRAND.ink + ';color:#f4f1ea;display:flex;flex-direction:column;justify-content:space-between;background-image:radial-gradient(circle at 15% 20%,rgba(255,138,76,.45),transparent 45%),radial-gradient(circle at 90% 85%,rgba(94,234,212,.25),transparent 40%)}' +\n  '.cover h1{font-family:Georgia,serif;font-weight:400;font-size:34pt;line-height:1.1;margin:0}.eyebrow{color:' + BRAND.ember + ';letter-spacing:.25em;font-size:8pt;text-transform:uppercase}' +\n  '.meta{display:flex;gap:24px;border-top:1px solid #2a2a34;padding-top:14px;font-size:9pt}.meta small{display:block;color:#8d8983;text-transform:uppercase;letter-spacing:.15em;font-size:7pt}' +\n  '.page{padding:18mm 20mm;page-break-before:always}h2{font-family:Georgia,serif;font-weight:400;font-size:18pt;margin:22px 0 8px}h3{font-family:Georgia,serif;font-weight:400;border-bottom:1px solid #1c1b19;padding-bottom:4px;display:flex;justify-content:space-between}h3 span{font:8pt Helvetica;color:#6f6a63;text-transform:uppercase;letter-spacing:.1em}' +\n  'table{width:100%;border-collapse:collapse}td{padding:7px 0;border-bottom:1px solid #e7e2d9;vertical-align:top}td small{color:#6f6a63}.r{text-align:right;white-space:nowrap}' +\n  '.g{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:9pt}.g span{width:140px}.g i{flex:1;height:10px;background:#efebe4;border-radius:5px;position:relative}.g b{position:absolute;top:0;height:10px;border-radius:5px;background:' + BRAND.ember + '}.g em{width:50px;text-align:right;color:#6f6a63;font-style:normal}' +\n  '.total{background:' + BRAND.ink + ';color:#f4f1ea;border-radius:10px;padding:18px 20px;margin:12px 0}.total strong{display:block;font-family:Georgia,serif;font-size:26pt;font-weight:400}' +\n  '</style></head><body>' +\n  '<section class=\"cover\"><div class=\"eyebrow\">' + esc(BRAND.name) + '</div><div><div class=\"eyebrow\">Project proposal</div><h1>' + esc(p.title) + '</h1><p>Prepared for ' + esc(lead.contact.name) + (lead.contact.company ? ' · ' + esc(lead.contact.company) : '') + '</p></div>' +\n  '<div class=\"meta\"><div><small>Reference</small>' + esc(lead.reference) + '</div><div><small>Valid until</small>' + esc(p.validUntil) + '</div><div><small>Investment</small>' + m(p.totals.total) + '</div><div><small>Timeline</small>' + p.totals.totalWeeks + ' weeks</div></div></section>' +\n  '<section class=\"page\"><div class=\"eyebrow\">01 — Executive summary</div>' + p.executiveSummary.split(/\\n{2,}/).map((x) => '<p>' + esc(x) + '</p>').join(\"\") +\n  (p.approach ? '<h2>How we will work together</h2><p>' + esc(p.approach) + '</p>' : '') +\n  '<div class=\"eyebrow\" style=\"margin-top:24px\">02 — Scope</div><h2>Deliverables</h2>' + phaseRows +\n  (optional.length ? '<h3>Optional add-ons <span>not included</span></h3><table>' + optional.map((i) => '<tr><td>' + esc(i.title) + '</td><td class=\"r\">' + m(i.price) + '</td></tr>').join(\"\") + '</table>' : '') +\n  '<div class=\"eyebrow\" style=\"margin-top:24px\">03 — Timeline</div><h2>' + p.totals.totalWeeks + ' weeks from kickoff to launch</h2>' + gantt +\n  '<div class=\"eyebrow\" style=\"margin-top:24px\">04 — Investment</div><div class=\"total\">Total project investment<strong>' + m(p.totals.total) + '</strong>' + (p.totals.monthlyTotal ? 'Plus ' + m(p.totals.monthlyTotal) + ' per month' : '') + '</div>' +\n  '<table>' + schedule + '</table>' +\n  '<h2>Next steps</h2><ol>' + p.nextSteps.map((s) => '<li>' + esc(s) + '</li>').join(\"\") + '</ol>' +\n  '<p>Review and accept online: <a href=\"' + esc(res.links.proposal) + '\">' + esc(res.links.proposal) + '</a> · Questions: ' + esc(BRAND.email) + '</p></section>' +\n  '</body></html>';\nreturn [{ json: { html, fileName: lead.reference + \"-proposal-v\" + p.version + \".pdf\" } }];"
+      }
+    },
+    {
+      "id": "3f3420c5-4b47-5205-a0a0-9cbed886fb9b",
+      "name": "HTML to File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        -120
+      ],
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "html",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "index.html"
+        }
+      }
+    },
+    {
+      "id": "4678da10-a172-5fb8-a691-0253eeee024c",
+      "name": "Gotenberg · Chromium",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.gotenbergUrl }}/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "printBackground",
+              "value": "true"
+            },
+            {
+              "name": "preferCssPageSize",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "c43ce84b-a119-5a91-a4e0-6b7e5060c6f0",
+      "name": "Respond with PDF",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1580,
+        0
+      ],
+      "parameters": {
+        "respondWith": "binary",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/pdf"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "c039f64f-bc6c-5a49-a4dc-ca8b1666b274",
+      "name": "Archive to Supabase?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1c794e7f-85cd-58a1-ad0d-2f445c5d6d37",
+              "leftValue": "={{ $('Config').first().json.uploadToSupabase }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "51f1427c-ba1f-528a-ac2e-01b198c025c1",
+      "name": "Upload to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2020,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.supabaseUrl }}/storage/v1/object/{{ $('Config').first().json.supabaseBucket }}/{{ $('PDF Webhook').first().json.body.proposalId }}.pdf",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-upsert",
+              "value": "true"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/pdf"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "be6319a7e26150",
+          "name": "ASD · Supabase CRM"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "fd36a6ae-a2ed-51ba-a968-60fd734d0da3",
+      "name": "Report PDF Archived",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        -60
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'pdf.generated', proposalId: $('PDF Webhook').first().json.body.proposalId, data: { engine: $('Config').first().json.pdfEngine, storagePath: $('Config').first().json.supabaseBucket + '/' + $('PDF Webhook').first().json.body.proposalId + '.pdf' } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "PDF Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Use Gotenberg?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Gotenberg?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Proposal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download App PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Proposal": {
+      "main": [
+        [
+          {
+            "node": "Render HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render HTML": {
+      "main": [
+        [
+          {
+            "node": "HTML to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML to File": {
+      "main": [
+        [
+          {
+            "node": "Gotenberg · Chromium",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gotenberg · Chromium": {
+      "main": [
+        [
+          {
+            "node": "Respond with PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download App PDF": {
+      "main": [
+        [
+          {
+            "node": "Respond with PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with PDF": {
+      "main": [
+        [
+          {
+            "node": "Archive to Supabase?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive to Supabase?": {
+      "main": [
+        [
+          {
+            "node": "Upload to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Storage": {
+      "main": [
+        [
+          {
+            "node": "Report PDF Archived",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "PDF microservice: POST { proposalId } and receive the branded proposal PDF. Renders with the app's built-in engine (default) or HTML → Gotenberg, and can archive every PDF to Supabase Storage."
+  },
+  "active": false
+}

@@ -1,0 +1,1498 @@
+{
+  "name": "ASD 04 · Client Dispatch & Admin Alerts",
+  "nodes": [
+    {
+      "id": "866f3750-b832-5787-ad66-da31f560e78b",
+      "name": "Note · Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -320
+      ],
+      "parameters": {
+        "content": "## 04 · Client Dispatch & Admin Alerts\n**Trigger:** the app POSTs proposal events here.\n\n- `proposal.approved` → PDF from workflow 03 → delivered to the client by **email and/or WhatsApp**, per `lead.contact.deliveryChannel` (`email` | `whatsapp` | `both`) → `proposal.sent` reported to the app per channel → Telegram / WhatsApp / **admin email** alert to the team (`adminEmail` in Config)\n- `proposal.accepted` → 🎉 alert (Telegram + admin email) + **welcome email** with kickoff link\n- `proposal.declined` → alert (Telegram + admin email) with the client's note\n- `proposal.created` → *draft ready for review* alert (only sent when the app runs the AI itself)\n- `proposal.sent` → the **app already emailed** the PDF to the client (payload `delivery.email = app`): Telegram/WhatsApp alert only. Welcome / admin emails on acceptance are skipped too, so nothing is sent twice.\n\n**Client WhatsApp delivery** requires an approved Meta message **template** (Cloud API can't send free-form text to a client who hasn't messaged you in the last 24h). Create one in Meta Business Manager with a body of the form \"Hi {{1}}, your proposal is ready — {{2}}. Review and accept: {{3}}\" and set its name in `whatsappClientTemplateName` below.\n\n**Credentials:** *ASD · Webhook auth* (also used to call workflow 03), *ASD · App API*, *ASD · SMTP*, *ASD · Telegram bot*, *ASD · WhatsApp Cloud API token*.",
+        "width": 460,
+        "height": 440,
+        "color": 6
+      }
+    },
+    {
+      "id": "d6e2118e-5184-5ae2-a4e7-030a32283919",
+      "name": "Dispatch Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "11f50e73-fa10-5789-a230-843fc6c93565",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asd-proposal-dispatch",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "fd744667be1350",
+          "name": "ASD · Webhook auth (app → n8n)"
+        }
+      }
+    },
+    {
+      "id": "e7e32826-9109-5d37-ab64-8381e1853e5e",
+      "name": "Respond 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ accepted: true, executionId: $execution.id }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "44f57e5a-6cec-5603-a564-80a2b438c223",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ec67dabd-e9a1-51d5-af29-04923b64c859",
+              "name": "appBaseUrl",
+              "value": "https://automation.asdesignlb.com",
+              "type": "string"
+            },
+            {
+              "id": "fa1a0c8e-1538-5d95-a54c-87e822098b35",
+              "name": "telegramChatId",
+              "value": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+              "type": "string"
+            },
+            {
+              "id": "5e8d4541-951d-522e-acf2-bd6e016f9c9a",
+              "name": "whatsappEnabled",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "a7a88210-9848-58a1-a118-f4dd0f7c0798",
+              "name": "whatsappPhoneNumberId",
+              "value": "REPLACE_WITH_META_PHONE_NUMBER_ID",
+              "type": "string"
+            },
+            {
+              "id": "4409be09-7abb-53d6-a81a-b74167e54e75",
+              "name": "adminWhatsappNumber",
+              "value": "9617XXXXXXX",
+              "type": "string"
+            },
+            {
+              "id": "4414a365-20c0-589f-a423-7cf7ebde3d44",
+              "name": "adminEmail",
+              "value": "info@asdesignlb.com",
+              "type": "string"
+            },
+            {
+              "id": "db9b2356-f90e-5b51-aa61-60ec53a7248b",
+              "name": "whatsappClientTemplateName",
+              "value": "proposal_ready",
+              "type": "string"
+            },
+            {
+              "id": "ac71c2aa-e19b-5ab9-a1a1-407dc052257e",
+              "name": "fromEmail",
+              "value": "info@asdesignlb.com",
+              "type": "string"
+            },
+            {
+              "id": "a55fac34-728e-5009-a24b-5be48c8fa577",
+              "name": "fromName",
+              "value": "Ali Mawla · AS Design",
+              "type": "string"
+            },
+            {
+              "id": "e5901ecf-4918-5864-a3d3-d1e7aa16ba50",
+              "name": "replyTo",
+              "value": "info@asdesignlb.com",
+              "type": "string"
+            },
+            {
+              "id": "dfaf9a89-4c5a-5f38-a551-8f227c7d0717",
+              "name": "bookingUrl",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "⚙️ Edit these values for your installation.",
+      "notesInFlow": true
+    },
+    {
+      "id": "c96f9d0b-5058-5d40-a71d-2e406e07f195",
+      "name": "Route Event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c9b85f41-7d86-5e0c-a872-8841b5651a8c",
+                    "leftValue": "={{ $('Dispatch Webhook').first().json.body.type }}",
+                    "rightValue": "proposal.approved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "approved"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bf4bbbfa-5ec5-57b6-a00b-82860fc6e064",
+                    "leftValue": "={{ $('Dispatch Webhook').first().json.body.type }}",
+                    "rightValue": "proposal.accepted",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "accepted"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "924d8cf8-48e9-5313-ab06-178ba4280273",
+                    "leftValue": "={{ $('Dispatch Webhook').first().json.body.type }}",
+                    "rightValue": "proposal.declined",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "declined"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e8a43357-c756-5757-ae65-d39d25e462bb",
+                    "leftValue": "={{ $('Dispatch Webhook').first().json.body.type }}",
+                    "rightValue": "proposal.created",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "draft ready"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "05cbb726-3a25-5d9f-a7f5-b3d057c0093e",
+                    "leftValue": "={{ $('Dispatch Webhook').first().json.body.type }}",
+                    "rightValue": "proposal.sent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sent by app"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "other"
+        }
+      }
+    },
+    {
+      "id": "c72fa9cf-e005-525a-ab70-b90f29aab86b",
+      "name": "Ignore (test / other)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        900,
+        720
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "9599d016-4b32-550a-a61e-54230b9713ef",
+      "name": "Get PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        -620
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/proposals/{{ $('Dispatch Webhook').first().json.body.proposal.id }}/pdf?download=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "795737e1-e43a-5f1b-afad-7d088e9280e3",
+      "name": "Compose Proposal Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -620
+      ],
+      "parameters": {
+        "jsCode": "function esc(value) {\n  return String(value === null || value === undefined ? \"\" : value)\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace(/\"/g, \"&quot;\");\n}\nfunction money(value, currency) {\n  try { return new Intl.NumberFormat(\"en-US\", { style: \"currency\", currency: currency || \"USD\", maximumFractionDigits: 0 }).format(value || 0); }\n  catch (e) { return (currency || \"USD\") + \" \" + Math.round(value || 0); }\n}\nvar BRAND = {\"name\":\"AS Design Studio\",\"monogram\":\"AS\",\"ember\":\"#d2660a\",\"ink\":\"#0a1669\",\"email\":\"info@asdesignlb.com\",\"site\":\"https://asdesignlb.com\"};\nfunction emailLayout(opts) {\n  var cta = opts.ctaUrl ? '<tr><td style=\"padding:8px 40px 32px\"><a href=\"' + esc(opts.ctaUrl) + '\" style=\"display:inline-block;background:' + BRAND.ember + ';color:#06060a;text-decoration:none;font-weight:600;padding:14px 26px;border-radius:999px;font-size:15px\">' + esc(opts.ctaLabel || \"Open\") + '</a></td></tr>' : \"\";\n  return '<!doctype html><html><body style=\"margin:0;background:#efece6;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1b19\">' +\n    '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:32px 12px\"><tr><td align=\"center\">' +\n    '<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#fbfaf7;border-radius:20px;overflow:hidden\">' +\n    '<tr><td style=\"background:' + BRAND.ink + ';padding:28px 40px;color:#f4f1ea\"><span style=\"display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border:1px solid #3a3a46;border-radius:50%;font-family:Georgia,serif\">' + esc(BRAND.monogram) + '</span>' +\n    '<span style=\"margin-left:12px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#b3aea7\">' + esc(BRAND.name) + '</span>' +\n    '<h1 style=\"margin:28px 0 0;font-family:Georgia,serif;font-weight:400;font-size:30px;line-height:1.2;color:#f4f1ea\">' + esc(opts.title) + '</h1></td></tr>' +\n    '<tr><td style=\"padding:32px 40px 8px;font-size:15px;line-height:1.7;color:#2c2a27\">' + opts.bodyHtml + '</td></tr>' + cta +\n    '<tr><td style=\"padding:20px 40px 32px;border-top:1px solid #e7e2d9;font-size:12px;color:#6f6a63\">' + esc(BRAND.name) + ' · <a href=\"mailto:' + esc(BRAND.email) + '\" style=\"color:#6f6a63\">' + esc(BRAND.email) + '</a></td></tr>' +\n    '</table></td></tr></table></body></html>';\n}\nconst body = $('Dispatch Webhook').first().json.body;\nconst lead = body.lead, p = body.proposal;\nconst first = String(lead.contact.name).split(\" \")[0];\nconst html = emailLayout({\n  title: p.title,\n  bodyHtml: \"<p>Hi \" + esc(first) + \",</p>\" +\n    \"<p>Thank you for your patience — your tailored proposal is ready. It covers the full scope, a timeline of \" + esc(p.display.duration) + \" and a total investment of <b>\" + esc(p.display.total) + \"</b>\" + (p.display.monthly ? \" (plus \" + esc(p.display.monthly) + \")\" : \"\") + \".</p>\" +\n    \"<p>The PDF is attached. You can also review it online and accept it in a couple of clicks — the link is private to you and valid until \" + esc(p.display.validUntil || p.validUntil) + \".</p>\" +\n    \"<p>Happy to walk you through it on a call — just reply to this email.</p>\",\n  ctaUrl: body.links.proposal,\n  ctaLabel: \"Review & accept your proposal\",\n});\nconst binary = $input.first().binary || {};\nif (binary.data) binary.data.fileName = lead.reference + \"-proposal-v\" + p.version + \".pdf\";\nreturn [{ json: { to: lead.contact.email, subject: \"Your proposal from \" + $('Config').first().json.fromName + \" · \" + lead.reference, html }, binary }];"
+      }
+    },
+    {
+      "id": "66869b1d-ec06-529f-adcf-eb15ef9b46b7",
+      "name": "Telegram · Sent",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1340,
+        -860
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegramChatId }}",
+        "text": "={{ '📤 <b>Proposal sent</b> · ' + $('Dispatch Webhook').first().json.body.lead.reference + '\\n' + $('Dispatch Webhook').first().json.body.lead.display.name + ' — ' + $('Dispatch Webhook').first().json.body.proposal.display.total + '\\n<a href=\"' + $('Dispatch Webhook').first().json.body.links.admin + '\">Open lead →</a>' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "9aef1cb84f765d",
+          "name": "ASD · Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "0156bf53-8ff5-5464-a020-2d94cda97f3c",
+      "name": "WhatsApp? (sent)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        -620
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "be69d9ae-2e85-59b7-a3c8-a87af7034d21",
+              "leftValue": "={{ $('Config').first().json.whatsappEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0ec9f9ef-610e-5866-acc5-6de9dd2b9828",
+      "name": "WhatsApp · Sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        -610
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('Config').first().json.whatsappPhoneNumberId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $('Config').first().json.adminWhatsappNumber, type: 'text', text: { preview_url: true, body: 'Proposal sent: ' + $('Dispatch Webhook').first().json.body.lead.reference + ' · ' + $('Dispatch Webhook').first().json.body.proposal.display.total } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "977e5706ffc858",
+          "name": "ASD · WhatsApp Cloud API token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "f66e35f1-d502-5677-afa0-e0aa286abe5d",
+      "name": "Compose Admin Email · Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        -740
+      ],
+      "parameters": {
+        "jsCode": "function esc(value) {\n  return String(value === null || value === undefined ? \"\" : value)\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace(/\"/g, \"&quot;\");\n}\nfunction money(value, currency) {\n  try { return new Intl.NumberFormat(\"en-US\", { style: \"currency\", currency: currency || \"USD\", maximumFractionDigits: 0 }).format(value || 0); }\n  catch (e) { return (currency || \"USD\") + \" \" + Math.round(value || 0); }\n}\nvar BRAND = {\"name\":\"AS Design Studio\",\"monogram\":\"AS\",\"ember\":\"#d2660a\",\"ink\":\"#0a1669\",\"email\":\"info@asdesignlb.com\",\"site\":\"https://asdesignlb.com\"};\nfunction emailLayout(opts) {\n  var cta = opts.ctaUrl ? '<tr><td style=\"padding:8px 40px 32px\"><a href=\"' + esc(opts.ctaUrl) + '\" style=\"display:inline-block;background:' + BRAND.ember + ';color:#06060a;text-decoration:none;font-weight:600;padding:14px 26px;border-radius:999px;font-size:15px\">' + esc(opts.ctaLabel || \"Open\") + '</a></td></tr>' : \"\";\n  return '<!doctype html><html><body style=\"margin:0;background:#efece6;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1b19\">' +\n    '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:32px 12px\"><tr><td align=\"center\">' +\n    '<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#fbfaf7;border-radius:20px;overflow:hidden\">' +\n    '<tr><td style=\"background:' + BRAND.ink + ';padding:28px 40px;color:#f4f1ea\"><span style=\"display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border:1px solid #3a3a46;border-radius:50%;font-family:Georgia,serif\">' + esc(BRAND.monogram) + '</span>' +\n    '<span style=\"margin-left:12px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#b3aea7\">' + esc(BRAND.name) + '</span>' +\n    '<h1 style=\"margin:28px 0 0;font-family:Georgia,serif;font-weight:400;font-size:30px;line-height:1.2;color:#f4f1ea\">' + esc(opts.title) + '</h1></td></tr>' +\n    '<tr><td style=\"padding:32px 40px 8px;font-size:15px;line-height:1.7;color:#2c2a27\">' + opts.bodyHtml + '</td></tr>' + cta +\n    '<tr><td style=\"padding:20px 40px 32px;border-top:1px solid #e7e2d9;font-size:12px;color:#6f6a63\">' + esc(BRAND.name) + ' · <a href=\"mailto:' + esc(BRAND.email) + '\" style=\"color:#6f6a63\">' + esc(BRAND.email) + '</a></td></tr>' +\n    '</table></td></tr></table></body></html>';\n}\nconst body = $('Dispatch Webhook').first().json.body;\nconst html = emailLayout({\n  title: \"Proposal sent · \" + body.lead.reference,\n  bodyHtml: \"<p>\" + esc(body.lead.display.name) + \" — <b>\" + esc(body.proposal.display.total) + \"</b></p>\",\n  ctaUrl: body.links.admin,\n  ctaLabel: \"Open lead\",\n});\nreturn [{ json: { to: $('Config').first().json.adminEmail, subject: \"Proposal sent · \" + body.lead.reference, html } }];"
+      }
+    },
+    {
+      "id": "b8fbbf9c-9faa-5008-a14e-cfb58157122e",
+      "name": "Admin Email · Sent",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1560,
+        -740
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Config').first().json.fromName + ' <' + $('Config').first().json.fromEmail + '>' }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text || String($json.html || '').replace(/<(style|head)[\\s\\S]*?<\\/\\1>/gi, '').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|tr|h1|li)>/gi, '\\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n\\s*\\n+/g, '\\n\\n').trim() }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $('Config').first().json.replyTo }}"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "f05ced84d43e5b",
+          "name": "ASD · SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "c28e4003-bea7-5c1e-ad49-70e634784f76",
+      "name": "Client wants email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        -500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e5f27f08-7071-576a-a1c5-7767531827f5",
+              "leftValue": "={{ $('Dispatch Webhook').first().json.body.lead.contact.deliveryChannel !== 'whatsapp' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "05fc41a8-720a-55d1-a8fc-c6b5952b94f8",
+      "name": "Email Proposal to Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1560,
+        -520
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Config').first().json.fromName + ' <' + $('Config').first().json.fromEmail + '>' }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text || String($json.html || '').replace(/<(style|head)[\\s\\S]*?<\\/\\1>/gi, '').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|tr|h1|li)>/gi, '\\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n\\s*\\n+/g, '\\n\\n').trim() }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $('Config').first().json.replyTo }}",
+          "attachments": "data"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "f05ced84d43e5b",
+          "name": "ASD · SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "639f51c2-8746-5840-ae72-e61910e8a858",
+      "name": "Report proposal.sent (email)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        -520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'proposal.sent', proposalId: $('Dispatch Webhook').first().json.body.proposal.id, data: { channel: 'email', to: $('Compose Proposal Email').first().json.to, executionId: $execution.id } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7bb2b1b4-9b75-59d7-ad1c-a92901aeca8e",
+      "name": "Client wants WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        -380
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c60438ec-98a2-54cc-a06d-dda80d5d9826",
+              "leftValue": "={{ $('Config').first().json.whatsappEnabled && $('Dispatch Webhook').first().json.body.lead.contact.deliveryChannel !== 'email' && $('Dispatch Webhook').first().json.body.lead.contact.whatsapp === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "27c54430-f0c1-5f69-ac6f-f6b2bbda8097",
+      "name": "Compose Client WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        -400
+      ],
+      "parameters": {
+        "jsCode": "\nconst body = $('Dispatch Webhook').first().json.body;\nconst lead = body.lead, p = body.proposal;\nconst first = String(lead.contact.name).split(\" \")[0];\nconst digits = String(lead.contact.phone || \"\").replace(/[^0-9]/g, \"\");\nreturn [{ json: {\n  to: digits,\n  template: $('Config').first().json.whatsappClientTemplateName,\n  param1: first,\n  param2: p.display.total,\n  param3: body.links.proposal,\n} }];"
+      }
+    },
+    {
+      "id": "398b2329-b28e-57c9-a1cf-c87ee19cd64d",
+      "name": "Send Client WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        -400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('Config').first().json.whatsappPhoneNumberId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.to, type: 'template', template: { name: $json.template, language: { code: 'en_US' }, components: [{ type: 'body', parameters: [ { type: 'text', text: $json.param1 }, { type: 'text', text: $json.param2 }, { type: 'text', text: $json.param3 } ] }] } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "977e5706ffc858",
+          "name": "ASD · WhatsApp Cloud API token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "1c396cf1-bc3d-5329-aa2f-8b817fc041ec",
+      "name": "Report proposal.sent (whatsapp)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'proposal.sent', proposalId: $('Dispatch Webhook').first().json.body.proposal.id, data: { channel: 'whatsapp', to: $('Compose Client WhatsApp').first().json.to, executionId: $execution.id } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "4f2e1d07-b68d-5acf-af76-b0c69d54b147",
+      "name": "Telegram · Accepted",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        -240
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegramChatId }}",
+        "text": "={{ '🎉 <b>Proposal accepted!</b> · ' + $('Dispatch Webhook').first().json.body.lead.reference + '\\n' + $('Dispatch Webhook').first().json.body.lead.display.name + ' signed ' + $('Dispatch Webhook').first().json.body.proposal.display.total + ($('Dispatch Webhook').first().json.body.proposal.clientResponse && $('Dispatch Webhook').first().json.body.proposal.clientResponse.note ? '\\n“' + $('Dispatch Webhook').first().json.body.proposal.clientResponse.note + '”' : '') + '\\n<a href=\"' + $('Dispatch Webhook').first().json.body.links.admin + '\">Plan the kickoff →</a>' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "9aef1cb84f765d",
+          "name": "ASD · Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "56087023-e48d-5ae2-ab78-c7c0ae6f22dc",
+      "name": "WhatsApp? (accepted)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        -240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "381655cc-e68e-5dd0-aea5-da4ab821f62e",
+              "leftValue": "={{ $('Config').first().json.whatsappEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "66ffedba-4100-5815-a50b-da1da3b2d217",
+      "name": "WhatsApp · Accepted",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('Config').first().json.whatsappPhoneNumberId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $('Config').first().json.adminWhatsappNumber, type: 'text', text: { preview_url: true, body: '🎉 Accepted: ' + $('Dispatch Webhook').first().json.body.lead.reference + ' · ' + $('Dispatch Webhook').first().json.body.proposal.display.total } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "977e5706ffc858",
+          "name": "ASD · WhatsApp Cloud API token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "1bea711d-e616-54e4-a8ce-14a5e9849473",
+      "name": "Compose Admin Email · Accepted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -120
+      ],
+      "parameters": {
+        "jsCode": "function esc(value) {\n  return String(value === null || value === undefined ? \"\" : value)\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace(/\"/g, \"&quot;\");\n}\nfunction money(value, currency) {\n  try { return new Intl.NumberFormat(\"en-US\", { style: \"currency\", currency: currency || \"USD\", maximumFractionDigits: 0 }).format(value || 0); }\n  catch (e) { return (currency || \"USD\") + \" \" + Math.round(value || 0); }\n}\nvar BRAND = {\"name\":\"AS Design Studio\",\"monogram\":\"AS\",\"ember\":\"#d2660a\",\"ink\":\"#0a1669\",\"email\":\"info@asdesignlb.com\",\"site\":\"https://asdesignlb.com\"};\nfunction emailLayout(opts) {\n  var cta = opts.ctaUrl ? '<tr><td style=\"padding:8px 40px 32px\"><a href=\"' + esc(opts.ctaUrl) + '\" style=\"display:inline-block;background:' + BRAND.ember + ';color:#06060a;text-decoration:none;font-weight:600;padding:14px 26px;border-radius:999px;font-size:15px\">' + esc(opts.ctaLabel || \"Open\") + '</a></td></tr>' : \"\";\n  return '<!doctype html><html><body style=\"margin:0;background:#efece6;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1b19\">' +\n    '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:32px 12px\"><tr><td align=\"center\">' +\n    '<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#fbfaf7;border-radius:20px;overflow:hidden\">' +\n    '<tr><td style=\"background:' + BRAND.ink + ';padding:28px 40px;color:#f4f1ea\"><span style=\"display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border:1px solid #3a3a46;border-radius:50%;font-family:Georgia,serif\">' + esc(BRAND.monogram) + '</span>' +\n    '<span style=\"margin-left:12px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#b3aea7\">' + esc(BRAND.name) + '</span>' +\n    '<h1 style=\"margin:28px 0 0;font-family:Georgia,serif;font-weight:400;font-size:30px;line-height:1.2;color:#f4f1ea\">' + esc(opts.title) + '</h1></td></tr>' +\n    '<tr><td style=\"padding:32px 40px 8px;font-size:15px;line-height:1.7;color:#2c2a27\">' + opts.bodyHtml + '</td></tr>' + cta +\n    '<tr><td style=\"padding:20px 40px 32px;border-top:1px solid #e7e2d9;font-size:12px;color:#6f6a63\">' + esc(BRAND.name) + ' · <a href=\"mailto:' + esc(BRAND.email) + '\" style=\"color:#6f6a63\">' + esc(BRAND.email) + '</a></td></tr>' +\n    '</table></td></tr></table></body></html>';\n}\nconst body = $('Dispatch Webhook').first().json.body;\nconst note = body.proposal.clientResponse && body.proposal.clientResponse.note;\nconst html = emailLayout({\n  title: \"🎉 Proposal accepted · \" + body.lead.reference,\n  bodyHtml: \"<p>\" + esc(body.lead.display.name) + \" signed <b>\" + esc(body.proposal.display.total) + \"</b></p>\" + (note ? \"<p><i>“\" + esc(note) + \"”</i></p>\" : \"\"),\n  ctaUrl: body.links.admin,\n  ctaLabel: \"Plan the kickoff\",\n});\nreturn [{ json: { to: $('Config').first().json.adminEmail, subject: \"🎉 Accepted · \" + body.lead.reference, html } }];"
+      }
+    },
+    {
+      "id": "0374fc16-f7d8-59d9-a577-1fe6429d16df",
+      "name": "Admin Email · Accepted",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        -120
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Config').first().json.fromName + ' <' + $('Config').first().json.fromEmail + '>' }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text || String($json.html || '').replace(/<(style|head)[\\s\\S]*?<\\/\\1>/gi, '').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|tr|h1|li)>/gi, '\\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n\\s*\\n+/g, '\\n\\n').trim() }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $('Config').first().json.replyTo }}"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "f05ced84d43e5b",
+          "name": "ASD · SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "c5f156b0-7ed6-52e2-a089-84213bafdf28",
+      "name": "Compose Welcome Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        20
+      ],
+      "parameters": {
+        "jsCode": "function esc(value) {\n  return String(value === null || value === undefined ? \"\" : value)\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace(/\"/g, \"&quot;\");\n}\nfunction money(value, currency) {\n  try { return new Intl.NumberFormat(\"en-US\", { style: \"currency\", currency: currency || \"USD\", maximumFractionDigits: 0 }).format(value || 0); }\n  catch (e) { return (currency || \"USD\") + \" \" + Math.round(value || 0); }\n}\nvar BRAND = {\"name\":\"AS Design Studio\",\"monogram\":\"AS\",\"ember\":\"#d2660a\",\"ink\":\"#0a1669\",\"email\":\"info@asdesignlb.com\",\"site\":\"https://asdesignlb.com\"};\nfunction emailLayout(opts) {\n  var cta = opts.ctaUrl ? '<tr><td style=\"padding:8px 40px 32px\"><a href=\"' + esc(opts.ctaUrl) + '\" style=\"display:inline-block;background:' + BRAND.ember + ';color:#06060a;text-decoration:none;font-weight:600;padding:14px 26px;border-radius:999px;font-size:15px\">' + esc(opts.ctaLabel || \"Open\") + '</a></td></tr>' : \"\";\n  return '<!doctype html><html><body style=\"margin:0;background:#efece6;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1b19\">' +\n    '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:32px 12px\"><tr><td align=\"center\">' +\n    '<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#fbfaf7;border-radius:20px;overflow:hidden\">' +\n    '<tr><td style=\"background:' + BRAND.ink + ';padding:28px 40px;color:#f4f1ea\"><span style=\"display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border:1px solid #3a3a46;border-radius:50%;font-family:Georgia,serif\">' + esc(BRAND.monogram) + '</span>' +\n    '<span style=\"margin-left:12px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#b3aea7\">' + esc(BRAND.name) + '</span>' +\n    '<h1 style=\"margin:28px 0 0;font-family:Georgia,serif;font-weight:400;font-size:30px;line-height:1.2;color:#f4f1ea\">' + esc(opts.title) + '</h1></td></tr>' +\n    '<tr><td style=\"padding:32px 40px 8px;font-size:15px;line-height:1.7;color:#2c2a27\">' + opts.bodyHtml + '</td></tr>' + cta +\n    '<tr><td style=\"padding:20px 40px 32px;border-top:1px solid #e7e2d9;font-size:12px;color:#6f6a63\">' + esc(BRAND.name) + ' · <a href=\"mailto:' + esc(BRAND.email) + '\" style=\"color:#6f6a63\">' + esc(BRAND.email) + '</a></td></tr>' +\n    '</table></td></tr></table></body></html>';\n}\nconst body = $('Dispatch Webhook').first().json.body;\nconst cfg = $('Config').first().json;\nconst lead = body.lead;\nconst first = String(lead.contact.name).split(\" \")[0];\nconst html = emailLayout({\n  title: \"Welcome aboard, \" + first,\n  bodyHtml: \"<p>We're thrilled to be working together on <b>\" + esc(body.proposal.title) + \"</b>.</p>\" +\n    \"<p>Here's what happens next:</p><ol>\" + body.proposal.nextSteps.map(function (s) { return \"<li>\" + esc(s) + \"</li>\"; }).join(\"\") + \"</ol>\" +\n    \"<p>Your first invoice (\" + esc(body.proposal.paymentSchedule[0] ? body.proposal.paymentSchedule[0].label : \"kickoff\") + \") will follow separately.</p>\",\n  ctaUrl: cfg.bookingUrl || body.links.proposal,\n  ctaLabel: cfg.bookingUrl ? \"Book your kickoff call\" : \"View your signed proposal\",\n});\nreturn [{ json: { to: lead.contact.email, subject: \"Welcome to \" + cfg.fromName + \" · next steps\", html } }];"
+      }
+    },
+    {
+      "id": "d4a2df55-0fa6-5fef-ad31-5e4df7c9f227",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        20
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Config').first().json.fromName + ' <' + $('Config').first().json.fromEmail + '>' }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text || String($json.html || '').replace(/<(style|head)[\\s\\S]*?<\\/\\1>/gi, '').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|tr|h1|li)>/gi, '\\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n\\s*\\n+/g, '\\n\\n').trim() }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $('Config').first().json.replyTo }}"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "f05ced84d43e5b",
+          "name": "ASD · SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a844efd6-d067-5d49-a6f4-c142618689ee",
+      "name": "Report Welcome Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        20
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'email.sent', proposalId: $('Dispatch Webhook').first().json.body.proposal.id, data: { kind: 'welcome', to: $('Compose Welcome Email').first().json.to } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "9b68c9be-c482-5da2-a21f-5a8a1d769a33",
+      "name": "Telegram · Declined",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        160
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegramChatId }}",
+        "text": "={{ '🕊 <b>Proposal declined</b> · ' + $('Dispatch Webhook').first().json.body.lead.reference + '\\n' + $('Dispatch Webhook').first().json.body.lead.display.name + ($('Dispatch Webhook').first().json.body.proposal.clientResponse && $('Dispatch Webhook').first().json.body.proposal.clientResponse.note ? '\\n“' + $('Dispatch Webhook').first().json.body.proposal.clientResponse.note + '”' : '') + '\\n<a href=\"' + $('Dispatch Webhook').first().json.body.links.admin + '\">Open lead →</a>' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "9aef1cb84f765d",
+          "name": "ASD · Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "041ccb9e-24ee-5c99-a570-f974e8bebb2d",
+      "name": "Compose Admin Email · Declined",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        280
+      ],
+      "parameters": {
+        "jsCode": "function esc(value) {\n  return String(value === null || value === undefined ? \"\" : value)\n    .replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace(/\"/g, \"&quot;\");\n}\nfunction money(value, currency) {\n  try { return new Intl.NumberFormat(\"en-US\", { style: \"currency\", currency: currency || \"USD\", maximumFractionDigits: 0 }).format(value || 0); }\n  catch (e) { return (currency || \"USD\") + \" \" + Math.round(value || 0); }\n}\nvar BRAND = {\"name\":\"AS Design Studio\",\"monogram\":\"AS\",\"ember\":\"#d2660a\",\"ink\":\"#0a1669\",\"email\":\"info@asdesignlb.com\",\"site\":\"https://asdesignlb.com\"};\nfunction emailLayout(opts) {\n  var cta = opts.ctaUrl ? '<tr><td style=\"padding:8px 40px 32px\"><a href=\"' + esc(opts.ctaUrl) + '\" style=\"display:inline-block;background:' + BRAND.ember + ';color:#06060a;text-decoration:none;font-weight:600;padding:14px 26px;border-radius:999px;font-size:15px\">' + esc(opts.ctaLabel || \"Open\") + '</a></td></tr>' : \"\";\n  return '<!doctype html><html><body style=\"margin:0;background:#efece6;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c1b19\">' +\n    '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding:32px 12px\"><tr><td align=\"center\">' +\n    '<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#fbfaf7;border-radius:20px;overflow:hidden\">' +\n    '<tr><td style=\"background:' + BRAND.ink + ';padding:28px 40px;color:#f4f1ea\"><span style=\"display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border:1px solid #3a3a46;border-radius:50%;font-family:Georgia,serif\">' + esc(BRAND.monogram) + '</span>' +\n    '<span style=\"margin-left:12px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#b3aea7\">' + esc(BRAND.name) + '</span>' +\n    '<h1 style=\"margin:28px 0 0;font-family:Georgia,serif;font-weight:400;font-size:30px;line-height:1.2;color:#f4f1ea\">' + esc(opts.title) + '</h1></td></tr>' +\n    '<tr><td style=\"padding:32px 40px 8px;font-size:15px;line-height:1.7;color:#2c2a27\">' + opts.bodyHtml + '</td></tr>' + cta +\n    '<tr><td style=\"padding:20px 40px 32px;border-top:1px solid #e7e2d9;font-size:12px;color:#6f6a63\">' + esc(BRAND.name) + ' · <a href=\"mailto:' + esc(BRAND.email) + '\" style=\"color:#6f6a63\">' + esc(BRAND.email) + '</a></td></tr>' +\n    '</table></td></tr></table></body></html>';\n}\nconst body = $('Dispatch Webhook').first().json.body;\nconst note = body.proposal.clientResponse && body.proposal.clientResponse.note;\nconst html = emailLayout({\n  title: \"Proposal declined · \" + body.lead.reference,\n  bodyHtml: \"<p>\" + esc(body.lead.display.name) + \"</p>\" + (note ? \"<p><i>“\" + esc(note) + \"”</i></p>\" : \"\"),\n  ctaUrl: body.links.admin,\n  ctaLabel: \"Open lead\",\n});\nreturn [{ json: { to: $('Config').first().json.adminEmail, subject: \"Declined · \" + body.lead.reference, html } }];"
+      }
+    },
+    {
+      "id": "73aa83b9-c712-5113-a268-db49d3a570aa",
+      "name": "Admin Email · Declined",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1340,
+        280
+      ],
+      "parameters": {
+        "fromEmail": "={{ $('Config').first().json.fromName + ' <' + $('Config').first().json.fromEmail + '>' }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text || String($json.html || '').replace(/<(style|head)[\\s\\S]*?<\\/\\1>/gi, '').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<\\/(p|tr|h1|li)>/gi, '\\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \\t]+/g, ' ').replace(/\\n\\s*\\n\\s*\\n+/g, '\\n\\n').trim() }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $('Config').first().json.replyTo }}"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "f05ced84d43e5b",
+          "name": "ASD · SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "5eec4ca3-4040-5512-a378-acfcf3c130cf",
+      "name": "n8n sends emails? (accepted)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2c63c9ea-90b7-526a-a620-b606bfda0aca",
+              "leftValue": "={{ ($('Dispatch Webhook').first().json.body.delivery || {}).email !== 'app' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "46f21f83-4fd7-5385-a30a-44f935db4da0",
+      "name": "n8n sends emails? (declined)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6f2fffa8-2222-5600-ab1c-1bf4b9c69bb7",
+              "leftValue": "={{ ($('Dispatch Webhook').first().json.body.delivery || {}).email !== 'app' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f4f5505b-aa92-5477-a096-71a6e9518a26",
+      "name": "Telegram · Sent by app",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        580
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegramChatId }}",
+        "text": "={{ '📤 <b>Proposal emailed</b> · ' + $('Dispatch Webhook').first().json.body.lead.reference + '\\n' + $('Dispatch Webhook').first().json.body.lead.display.name + ' — ' + $('Dispatch Webhook').first().json.body.proposal.display.total + '\\n<a href=\"' + $('Dispatch Webhook').first().json.body.links.admin + '\">Open lead →</a>' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "9aef1cb84f765d",
+          "name": "ASD · Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "9a53cd99-aab4-5de1-ae6f-010d87ebec48",
+      "name": "WhatsApp? (sent by app)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        580
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ef60b54c-2d16-5cf0-a7bb-62748f34d434",
+              "leftValue": "={{ $('Config').first().json.whatsappEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "02e36a65-7900-5535-a907-fc7e00acb8a5",
+      "name": "WhatsApp · Sent by app",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('Config').first().json.whatsappPhoneNumberId }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $('Config').first().json.adminWhatsappNumber, type: 'text', text: { preview_url: true, body: 'Proposal emailed: ' + $('Dispatch Webhook').first().json.body.lead.reference + ' · ' + $('Dispatch Webhook').first().json.body.proposal.display.total } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "977e5706ffc858",
+          "name": "ASD · WhatsApp Cloud API token"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "fafa7ca5-9a3f-5261-aa3d-4be305710180",
+      "name": "Telegram · Draft Ready",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        440
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegramChatId }}",
+        "text": "={{ '✨ <b>Proposal draft ready</b> · ' + $('Dispatch Webhook').first().json.body.lead.reference + '\\n' + $('Dispatch Webhook').first().json.body.proposal.title + '\\n💰 ' + $('Dispatch Webhook').first().json.body.proposal.display.total + '\\n<a href=\"' + $('Dispatch Webhook').first().json.body.links.admin + '\">Review & approve →</a>' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "9aef1cb84f765d",
+          "name": "ASD · Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Telegram · Sent by app": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp? (sent by app)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp? (sent by app)": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp · Sent by app",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 202": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Route Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Event": {
+      "main": [
+        [
+          {
+            "node": "Get PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram · Accepted",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "n8n sends emails? (accepted)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram · Declined",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "n8n sends emails? (declined)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram · Draft Ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram · Sent by app",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore (test / other)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n sends emails? (accepted)": {
+      "main": [
+        [
+          {
+            "node": "Compose Welcome Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Compose Admin Email · Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PDF": {
+      "main": [
+        [
+          {
+            "node": "Compose Proposal Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Proposal Email": {
+      "main": [
+        [
+          {
+            "node": "Telegram · Sent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "WhatsApp? (sent)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Compose Admin Email · Sent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Client wants email?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Client wants WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp? (sent)": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp · Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Admin Email · Sent": {
+      "main": [
+        [
+          {
+            "node": "Admin Email · Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client wants email?": {
+      "main": [
+        [
+          {
+            "node": "Email Proposal to Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Proposal to Client": {
+      "main": [
+        [
+          {
+            "node": "Report proposal.sent (email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client wants WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Compose Client WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Client WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Send Client WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Client WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Report proposal.sent (whatsapp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram · Accepted": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp? (accepted)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp? (accepted)": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp · Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Admin Email · Accepted": {
+      "main": [
+        [
+          {
+            "node": "Admin Email · Accepted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n sends emails? (declined)": {
+      "main": [
+        [
+          {
+            "node": "Compose Admin Email · Declined",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Admin Email · Declined": {
+      "main": [
+        [
+          {
+            "node": "Admin Email · Declined",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Report Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Receives proposal lifecycle events. On approval: fetches the PDF (workflow 03), delivers it to the client by email and/or WhatsApp per their delivery preference, reports proposal.sent per channel and alerts the team on Telegram/WhatsApp. Also handles acceptance, decline and draft-ready alerts."
+  },
+  "active": false
+}

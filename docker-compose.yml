@@ -1,0 +1,50 @@
+# Self-hosted stack: the platform + n8n + Gotenberg (HTML → PDF for workflow 03).
+#   cp .env.example .env   # fill in secrets
+#   docker compose up -d --build
+# Put a TLS reverse proxy (Caddy, Traefik, Nginx) in front, e.g.
+#   automation.asdesignlb.com → app:3000     n8n.asdesignlb.com → n8n:5678
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://asdesignlb.com}
+        NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-hello@asdesignlb.com}
+        NEXT_PUBLIC_BOOKING_URL: ${NEXT_PUBLIC_BOOKING_URL:-}
+    env_file: .env
+    environment:
+      # Inside the compose network the app reaches n8n directly.
+      N8N_WEBHOOK_BASE_URL: ${N8N_WEBHOOK_BASE_URL:-http://n8n:5678/webhook}
+    ports:
+      - "3000:3000"
+    volumes:
+      - app-data:/app/.data   # only used when DATA_STORE=local
+    restart: unless-stopped
+    depends_on: [n8n]
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${N8N_PUBLIC_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Beirut}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+    restart: unless-stopped
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    # Reachable from n8n at http://gotenberg:3000 (not exposed publicly)
+
+volumes:
+  app-data:
+  n8n-data:

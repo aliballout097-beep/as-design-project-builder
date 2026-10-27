@@ -1,0 +1,811 @@
+{
+  "name": "ASD 05 · CRM Sync (Airtable · Notion · Supabase)",
+  "nodes": [
+    {
+      "id": "3e07f9c3-d95f-5d7c-a1e2-5c67c6a7f5f5",
+      "name": "Note · Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -320
+      ],
+      "parameters": {
+        "content": "## 05 · CRM Sync\n**Trigger:** the app POSTs `crm.sync` with `{ trigger, lead, proposal, links }` on every lifecycle change.\n\nEnable the targets you use in ⚙️ Config — each upserts on the lead **Reference** so records never duplicate:\n- **Airtable** — `PATCH /v0/{base}/{table}` with `performUpsert` · credential *ASD · Airtable* (personal access token)\n- **Notion** — query the database by Reference, then update or create the page · credential *ASD · Notion*\n- **Supabase** — `POST /rest/v1/crm_contacts?on_conflict=lead_reference` (table in `supabase/migrations`) · credential *ASD · Supabase CRM*\n\nRecord ids are reported back (`crm.synced`) and shown on the lead in the dashboard.\nField names & Notion property types: see README → CRM sync.",
+        "width": 460,
+        "height": 400,
+        "color": 6
+      }
+    },
+    {
+      "id": "135eb37d-d6a8-5baa-a525-08c0da05b768",
+      "name": "CRM Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "560fcad9-f350-5ea3-ad35-df1d841a050d",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asd-crm-sync",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "fd744667be1350",
+          "name": "ASD · Webhook auth (app → n8n)"
+        }
+      }
+    },
+    {
+      "id": "6b2e0288-d09b-5139-a4f1-3b186df3ec83",
+      "name": "Respond 202",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ accepted: true, executionId: $execution.id }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    },
+    {
+      "id": "e57e4116-1319-5c7a-abeb-16b0a23529bb",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7d700bf8-986b-5b2c-a275-b675ee0344ab",
+              "name": "appBaseUrl",
+              "value": "https://automation.asdesignlb.com",
+              "type": "string"
+            },
+            {
+              "id": "b57a2f3a-72a5-5631-adc9-e3f172a5d48b",
+              "name": "airtableEnabled",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "3a3379bb-52fa-5b9e-a782-f4714344a41a",
+              "name": "airtableBaseId",
+              "value": "appXXXXXXXXXXXXXX",
+              "type": "string"
+            },
+            {
+              "id": "9052bdd2-9fe9-5d0f-a0cb-9f4604284d65",
+              "name": "airtableTable",
+              "value": "Leads",
+              "type": "string"
+            },
+            {
+              "id": "5f592d13-5671-50ac-a5a4-463c3210f629",
+              "name": "notionEnabled",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "cc616e7a-56c7-59cd-a732-4eda70bc0321",
+              "name": "notionDatabaseId",
+              "value": "REPLACE_WITH_NOTION_DATABASE_ID",
+              "type": "string"
+            },
+            {
+              "id": "bca893e6-3cbc-5e9b-a72c-8aeb75f0cb21",
+              "name": "supabaseEnabled",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "3353986f-fa1c-596c-a6b4-038ea2afb58d",
+              "name": "supabaseUrl",
+              "value": "https://YOUR-PROJECT.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "a849e117-9aa9-5d65-a76c-53d7456d9667",
+              "name": "supabaseTable",
+              "value": "crm_contacts",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "⚙️ Edit these values for your installation.",
+      "notesInFlow": true
+    },
+    {
+      "id": "c4a3d507-7be7-5f9e-ae7d-acce1ad5982b",
+      "name": "Is test ping?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3c511c7e-bed5-5199-a90a-94e6dca45166",
+              "leftValue": "={{ $('CRM Webhook').first().json.body.type }}",
+              "rightValue": "test.ping",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5ff77971-2145-5dc4-ab8b-494eef15ad8c",
+      "name": "Test OK",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -140
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "16c23189-7734-5c8f-ad87-3a56c7c9c307",
+      "name": "Map CRM Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        60
+      ],
+      "parameters": {
+        "jsCode": "// One flat record per lead, reused by every CRM target.\nconst body = $('CRM Webhook').first().json.body;\nconst lead = body.lead, p = body.proposal, links = body.links;\nconst record = {\n  Reference: lead.reference,\n  Name: lead.contact.name,\n  Email: lead.contact.email,\n  Phone: lead.contact.phone || \"\",\n  Company: lead.contact.company || \"\",\n  Status: lead.status,\n  Services: lead.project.services,\n  ServicesLabel: lead.display.services,\n  Budget: lead.display.budget,\n  Timeline: lead.display.timeline,\n  Source: lead.source,\n  \"Fit Score\": lead.fitScore,\n  \"Estimated Value\": lead.estimatedValue,\n  \"Proposal Status\": p ? p.status : \"\",\n  \"Proposal Total\": p ? p.totals.total : null,\n  \"Last Event\": body.trigger,\n  Created: lead.createdAt,\n  Dashboard: links.admin,\n  Proposal: links.proposal || \"\",\n};\nconst text = (v) => ({ rich_text: [{ text: { content: String(v || \"\").slice(0, 1900) } }] });\nconst notionProperties = {\n  Name: { title: [{ text: { content: record.Company ? record.Company + \" — \" + record.Name : record.Name } }] },\n  Reference: text(record.Reference),\n  Email: { email: record.Email },\n  Phone: { phone_number: record.Phone || null },\n  Company: text(record.Company),\n  Status: { select: { name: record.Status } },\n  Services: { multi_select: lead.display.services.split(\", \").filter(Boolean).map((name) => ({ name: name.replace(/,/g, \"\") })) },\n  Budget: text(record.Budget),\n  Timeline: text(record.Timeline),\n  \"Fit Score\": { number: record[\"Fit Score\"] },\n  \"Estimated Value\": { number: record[\"Estimated Value\"] },\n  \"Proposal Total\": { number: record[\"Proposal Total\"] },\n  Created: { date: { start: record.Created } },\n  Dashboard: { url: record.Dashboard },\n  Proposal: { url: record.Proposal || null },\n};\nconst supabaseRow = {\n  lead_reference: record.Reference, lead_id: lead.id, name: record.Name, email: record.Email, phone: record.Phone || null,\n  company: record.Company || null, status: record.Status, services: record.Services, budget: record.Budget, timeline: record.Timeline,\n  source: record.Source, fit_score: record[\"Fit Score\"], estimated_value: record[\"Estimated Value\"], proposal_status: record[\"Proposal Status\"] || null,\n  proposal_total: record[\"Proposal Total\"], dashboard_url: record.Dashboard, proposal_url: record.Proposal || null, last_event: record[\"Last Event\"],\n  updated_at: new Date().toISOString(),\n};\nconst airtableFields = Object.assign({}, record, { Services: record.ServicesLabel });\ndelete airtableFields.ServicesLabel;\nreturn [{ json: { leadId: lead.id, record, airtableFields, notionProperties, supabaseRow } }];"
+      }
+    },
+    {
+      "id": "c30bd6a5-b4a1-5f2b-a617-220916fa7ba0",
+      "name": "Airtable enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        -140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fd08cbcd-b764-5ada-a4aa-3884aec0765c",
+              "leftValue": "={{ $('Config').first().json.airtableEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8591e9e1-16ca-57b9-a98a-0b92ac58ff1b",
+      "name": "Airtable · Upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -160
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.airtable.com/v0/{{ $('Config').first().json.airtableBaseId }}/{{ encodeURIComponent($('Config').first().json.airtableTable) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ performUpsert: { fieldsToMergeOn: ['Reference'] }, typecast: true, records: [{ fields: $('Map CRM Record').first().json.airtableFields }] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "1e6cdb2b477151",
+          "name": "ASD · Airtable"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ae36dd8f-3f4f-5961-ade5-7ffd66432425",
+      "name": "Report Airtable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        -160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'crm.synced', leadId: $('Map CRM Record').first().json.leadId, data: { provider: 'airtable', airtableRecordId: $json.records && $json.records[0] ? $json.records[0].id : undefined } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "43d578c2-22da-54a2-a276-92526b0caeb8",
+      "name": "Notion enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7af6c5e6-3bf0-5b98-a4e0-826b634846ca",
+              "leftValue": "={{ $('Config').first().json.notionEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1964dc28-ca36-54ed-a201-2ce5fa0201f0",
+      "name": "Notion · Find Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('Config').first().json.notionDatabaseId }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ page_size: 1, filter: { property: 'Reference', rich_text: { equals: $('Map CRM Record').first().json.record.Reference } } }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "notionApi": {
+          "id": "082cdbe557c45e",
+          "name": "ASD · Notion"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "17545371-9daf-589e-a68d-448a2326ed46",
+      "name": "Page exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2dd8edd9-f566-5c9a-af85-59fcdaa28aa5",
+              "leftValue": "={{ $json.results && $json.results[0] ? $json.results[0].id : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f9fe9f39-69d9-50e7-ab7a-0ab46d00e2b5",
+      "name": "Notion · Update Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -20
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.notion.com/v1/pages/{{ $('Notion · Find Page').first().json.results[0].id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: $('Map CRM Record').first().json.notionProperties }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "notionApi": {
+          "id": "082cdbe557c45e",
+          "name": "ASD · Notion"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "1cd38e13-8472-529e-a68b-bd3ec474572d",
+      "name": "Notion · Create Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        120
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ parent: { database_id: $('Config').first().json.notionDatabaseId }, properties: $('Map CRM Record').first().json.notionProperties }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "notionApi": {
+          "id": "082cdbe557c45e",
+          "name": "ASD · Notion"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "ff304cc1-0d8c-5fc6-aa61-880b3a0ab88b",
+      "name": "Report Notion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'crm.synced', leadId: $('Map CRM Record').first().json.leadId, data: { provider: 'notion', notionPageId: $json.id } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "61be00be-7ee7-539f-afe5-933d954d79e6",
+      "name": "Supabase enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "81faf278-f042-56f7-ad55-6b0fd5f47f3f",
+              "leftValue": "={{ $('Config').first().json.supabaseEnabled }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "641f53d9-35a4-5485-ab03-eb05795224c6",
+      "name": "Supabase · Upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.supabaseUrl }}/rest/v1/{{ $('Config').first().json.supabaseTable }}?on_conflict=lead_reference",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Map CRM Record').first().json.supabaseRow) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "be6319a7e26150",
+          "name": "ASD · Supabase CRM"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "4f5b36d1-dbc4-5a7a-a3b7-c2dca49156a8",
+      "name": "Report Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.appBaseUrl }}/api/v1/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ type: 'crm.synced', leadId: $('Map CRM Record').first().json.leadId, data: { provider: 'supabase', supabaseRecordId: Array.isArray($json) ? String($json[0] && $json[0].id) : ($json.id ? String($json.id) : undefined) } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "CRM Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond 202",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 202": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Is test ping?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is test ping?": {
+      "main": [
+        [
+          {
+            "node": "Test OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Map CRM Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map CRM Record": {
+      "main": [
+        [
+          {
+            "node": "Airtable enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notion enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable enabled?": {
+      "main": [
+        [
+          {
+            "node": "Airtable · Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable · Upsert": {
+      "main": [
+        [
+          {
+            "node": "Report Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion enabled?": {
+      "main": [
+        [
+          {
+            "node": "Notion · Find Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion · Find Page": {
+      "main": [
+        [
+          {
+            "node": "Page exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Page exists?": {
+      "main": [
+        [
+          {
+            "node": "Notion · Update Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notion · Create Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion · Update Page": {
+      "main": [
+        [
+          {
+            "node": "Report Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion · Create Page": {
+      "main": [
+        [
+          {
+            "node": "Report Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase enabled?": {
+      "main": [
+        [
+          {
+            "node": "Supabase · Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase · Upsert": {
+      "main": [
+        [
+          {
+            "node": "Report Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Receives `crm.sync` for every lifecycle change (lead created, proposal created/approved/sent/accepted/declined, status changes) and upserts one record per lead into Airtable, Notion and/or a Supabase table."
+  },
+  "active": false
+}

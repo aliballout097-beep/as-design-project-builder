@@ -1,0 +1,217 @@
+{
+  "name": "ASD 01 · Import External Leads",
+  "nodes": [
+    {
+      "id": "122a8e91-2ad2-577d-a0a5-5e825b367764",
+      "name": "Note · External leads",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        460
+      ],
+      "parameters": {
+        "content": "## Import leads from anywhere\nPoint Typeform, Webflow forms, Meta Lead Ads (or any tool) at this webhook: `POST /webhook/asd-external-lead`.\n\n**Map Fields** converts the payload into the app's lead schema and **Create Lead** calls `POST /api/v1/onboard` with the App API token — the lead then flows through the normal pipeline (alerts, AI analysis, CRM).\n\nAdjust the mapping to your form's field names.",
+        "width": 420,
+        "height": 300,
+        "color": 4
+      }
+    },
+    {
+      "id": "589f9f9f-ca20-5bdc-a5d7-4d598d0be6df",
+      "name": "External Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "webhookId": "8297c547-9b22-585b-a1b5-5c7778256888",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asd-external-lead",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "fd744667be1350",
+          "name": "ASD · Webhook auth (app → n8n)"
+        }
+      }
+    },
+    {
+      "id": "64ab5fc2-8585-5e18-a863-b306b2e97a8b",
+      "name": "Config (import)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        560
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8e23f92a-6d4c-5afa-a8f1-224110751d80",
+              "name": "appBaseUrl",
+              "value": "https://automation.asdesignlb.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "⚙️ Edit these values for your installation.",
+      "notesInFlow": true
+    },
+    {
+      "id": "4a4c044d-2b30-5f2e-a87e-b03071749d75",
+      "name": "Map Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        560
+      ],
+      "parameters": {
+        "jsCode": "// Accepts flat payloads such as { name, email, phone, company, message, services, budget, timeline }.\nconst src = $('External Lead Webhook').first().json.body || {};\nconst pick = (...keys) => { for (const k of keys) { if (src[k] !== undefined && src[k] !== null && src[k] !== \"\") return src[k]; } return undefined; };\nconst services = [].concat(pick(\"services\", \"service\") || [\"web-design\"]).map(String);\nconst payload = {\n  project: {\n    services,\n    description: String(pick(\"message\", \"description\", \"brief\", \"details\") || \"Imported lead — details to be confirmed on the discovery call.\").padEnd(30, \".\"),\n    name: pick(\"project\", \"projectName\"),\n  },\n  plan: { budget: pick(\"budget\") || \"not-sure\", timeline: pick(\"timeline\") || \"flexible\" },\n  contact: {\n    name: String(pick(\"name\", \"full_name\", \"fullName\") || \"Unknown\"),\n    email: String(pick(\"email\", \"email_address\")),\n    phone: pick(\"phone\", \"phone_number\"),\n    company: pick(\"company\", \"company_name\"),\n    consent: true,\n  },\n  meta: { source: \"import\", utm: { source: pick(\"utm_source\", \"source\") } },\n};\nreturn [{ json: { payload } }];"
+      }
+    },
+    {
+      "id": "f2f63eeb-4a1f-56ef-ac0b-25bf503e0279",
+      "name": "Create Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config (import)').first().json.appBaseUrl }}/api/v1/onboard",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "45c2e32a41e157",
+          "name": "ASD · App API (n8n → app)"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "34a2e264-ed48-5710-a7f0-3e402acb8a47",
+      "name": "Respond Created",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, reference: $json.reference }) }}",
+        "options": {
+          "responseCode": 201
+        }
+      }
+    },
+    {
+      "id": "073ee5b5-9d57-5a73-a516-d08c006b9255",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        660
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: $json.error }) }}",
+        "options": {
+          "responseCode": 422
+        }
+      }
+    }
+  ],
+  "connections": {
+    "External Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config (import)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config (import)": {
+      "main": [
+        [
+          {
+            "node": "Map Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Fields": {
+      "main": [
+        [
+          {
+            "node": "Create Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Lead": {
+      "main": [
+        [
+          {
+            "node": "Respond Created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Optional. Point Typeform, Webflow forms, Meta Lead Ads (or any tool) at POST /webhook/asd-external-lead — each lead is created in the app and flows through the normal pipeline (email alert to the team, AI analysis, proposal)."
+  },
+  "active": false
+}
